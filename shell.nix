@@ -14,6 +14,7 @@ in pkgs.mkShell {
         source .venv/bin/activate
         uv add google-genai==1.12.1
         uv add python-dotenv==1.1.0
+        uv add python-
     else
         source .venv/bin/activate
     fi
