@@ -4,40 +4,55 @@ import argparse
 import os
 import json
 import string
+from nltk.stem import PorterStemmer
 
-stop_words = [
-    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't", "as", "at", 
-    "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", 
-    "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during", 
-    "each", "few", "for", "from", "further", 
-    "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how", "how's", 
-    "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself", 
-    "let's", 
-    "me", "more", "most", "mustn't", "my", "myself", 
-    "no", "nor", "not", 
-    "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", 
-    "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such", 
-    "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've", "this", "those", "through", "to", "too", 
-    "under", "until", "up", 
-    "very", 
-    "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's", "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", "won't", "would", "wouldn't", 
-    "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves"
-    ]
-
-def clean(dirty_str : str) -> str:
+def clean(dirty_str : str, stop_words : list[str]) -> list[str]:
     cleaned_str = dirty_str.lower() # Case senesetive
     cleaned_str = cleaned_str.translate(str.maketrans('', '', string.punctuation)) # Remove punctuations
     cleaned_str = cleaned_str.split(" ") # Tokenization
-    #cleaned_str = [word for word in cleaned_str if word not in stop_words] # Remove stop words
+    cleaned_str = [word for word in cleaned_str if word not in stop_words] # Remove stop words
+
+    stemmer = PorterStemmer()
+    cleaned_str = [stemmer.stem(token) for token in cleaned_str]
+
     return cleaned_str
 
+def has_matching_token(query_tokens: list[str], title_tokens: list[str]) -> bool:
+    for query_token in query_tokens:
+        for title_token in title_tokens:
+            if query_token in title_token:
+                return True
+    return False
 
-def main() -> None:
-    trunc_len = 5
+def search_command(query : str, limit : int = 5) -> list[dict]:
+    print(f"Searching for: {query}")
+
     cur_path = os.path.dirname(__file__)
     print(cur_path)
     data_mov_path = os.path.join(cur_path, "..", "data", "movies.json")
     print(data_mov_path)
+
+    with open(os.path.join(cur_path, "..", "data", "stopwords.txt"), "r") as stop_words_file:
+        stop_words = stop_words_file.read()
+        stop_words = stop_words.splitlines()
+
+    cleaned_query = clean(query, stop_words)
+    
+    with open(data_mov_path, "r") as mov_file:
+        mov_dict = json.load(mov_file)
+
+    movie_matches = []
+    for movie in mov_dict["movies"]:
+        cleaned_title = clean(movie["title"], stop_words)
+        if has_matching_token(cleaned_query, cleaned_title):
+        #if any(map(lambda v: v in cleaned_query, cleaned_title)):
+            movie_matches.append(movie)
+
+    return movie_matches
+
+
+def main() -> None:
+    trunc_len = 5
 
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -49,17 +64,8 @@ def main() -> None:
 
     match args.command:
         case "search":
-            print(f"Searching for: {args.query}")
-            cleaned_query = clean(args.query)
-            
-            with open(data_mov_path, "r") as mov_file:
-                mov_dict = json.load(mov_file)
 
-            movie_matches = []
-            for movie in mov_dict["movies"]:
-                cleaned_title = clean(movie["title"])
-                if any(map(lambda v: v in cleaned_query, cleaned_title)):
-                    movie_matches.append(movie)
+            movie_matches = search_command(args.query, trunc_len)
 
             def idSort(e):
                 return e["id"]
@@ -71,6 +77,8 @@ def main() -> None:
 
             if len(movie_matches) > trunc_len:
                 print("...")
+            
+            print(f"Total found: {len(movie_matches)}")
 
         case _:
             parser.print_help()
