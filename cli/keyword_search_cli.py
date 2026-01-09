@@ -6,6 +6,16 @@ import json
 import string
 from nltk.stem import PorterStemmer
 
+from inverted_index import InvertedIndex
+
+def build() -> None:
+    inverted_index = InvertedIndex()
+    inverted_index.build()
+    inverted_index.save()
+    docs = inverted_index.get_documents("merida")
+
+    print(f"First document for token 'merida' = {docs[0]}")
+
 def clean(dirty_str : str, stop_words : list[str]) -> list[str]:
     cleaned_str = dirty_str.lower() # Case senesetive
     cleaned_str = cleaned_str.translate(str.maketrans('', '', string.punctuation)) # Remove punctuations
@@ -13,7 +23,7 @@ def clean(dirty_str : str, stop_words : list[str]) -> list[str]:
     cleaned_str = [word for word in cleaned_str if word not in stop_words] # Remove stop words
 
     stemmer = PorterStemmer()
-    cleaned_str = [stemmer.stem(token) for token in cleaned_str]
+    cleaned_str = [stemmer.stem(token) for token in cleaned_str] # Stem words
 
     return cleaned_str
 
@@ -60,6 +70,8 @@ def main() -> None:
     search_parser = subparsers.add_parser("search", help="Search movies using BM25")
     search_parser.add_argument("query", type=str, help="Search query")
 
+    search_parser = subparsers.add_parser("build", help="Build and inverted index and save it to file")
+
     args = parser.parse_args()
 
     match args.command:
@@ -79,6 +91,9 @@ def main() -> None:
                 print("...")
             
             print(f"Total found: {len(movie_matches)}")
+
+        case "build":
+            build()
 
         case _:
             parser.print_help()

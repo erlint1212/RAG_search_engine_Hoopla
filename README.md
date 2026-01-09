@@ -1,1 +1,8 @@
-# RAG training project
+# RAG movie lookup project
+
+* Text processing
+    - Punctuation
+    - Tokenization
+    - Stop Words
+
+* TF-IDF
