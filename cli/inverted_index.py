@@ -79,6 +79,19 @@ class InvertedIndex:
 
         return tf*idf
 
+    def get_bm25_idf(self, term: str) -> float:
+
+        token = self.__tokenize(term, self.get_stopwords)
+        if len(token) > 1:
+            raise Exception(f"Expected one term, got multiple: {token}")
+
+        token = token[0]
+        
+        total_doc_count = len(self.docmap)
+        term_match_doc_count = len(self.index[token])
+
+        return math.log((total_doc_count - term_match_doc_count + 0.5) / (term_match_doc_count + 0.5) + 1)
+
     def get_documents(self, term : str, limit : int = 0) -> list[int]:
         doc_id_matches = []
 

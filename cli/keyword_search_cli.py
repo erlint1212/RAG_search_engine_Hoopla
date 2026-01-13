@@ -40,6 +40,15 @@ def tf_idf_command(doc_id : int, term : str) -> float:
 
     return tf_idf
 
+def bm25_idf_command(term : str) -> float:
+
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+
+    bm25_idf = inverted_index.get_bm25_idf(term)
+
+    return bm25_idf
+
 def clean(dirty_str : str, stop_words : list[str]) -> list[str]:
     cleaned_str = dirty_str.lower() # Case senesetive
     cleaned_str = cleaned_str.translate(str.maketrans('', '', string.punctuation)) # Remove punctuations
@@ -108,6 +117,9 @@ def main() -> None:
     tfidf_parser.add_argument("doc_id", type=int, help="Document id")
     tfidf_parser.add_argument("term", type=str, help="Term which you want frequency for")
 
+    bm25_idf_parser = subparsers.add_parser("bm25idf", help="Get BM25 IDF score for a given term")
+    bm25_idf_parser.add_argument("term", type=str, help="Term to get BM25 IDF score for")
+
     args = parser.parse_args()
 
     match args.command:
@@ -139,6 +151,11 @@ def main() -> None:
             tf_idf = tf_idf_command(args.doc_id, args.term)
 
             print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
+
+        case "bm25idf":
+            bm25_idf = bm25_idf_command(args.term)
+
+            print(f"BM25 IDF score of '{args.term}': {bm25_idf:.2f}")
 
         case _:
             parser.print_help()
