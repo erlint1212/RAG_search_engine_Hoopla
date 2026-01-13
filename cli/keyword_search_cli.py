@@ -8,13 +8,37 @@ from nltk.stem import PorterStemmer
 
 from inverted_index import InvertedIndex
 
-def build() -> None:
+def build_command() -> None:
     inverted_index = InvertedIndex()
     inverted_index.build()
     inverted_index.save()
-    docs = inverted_index.get_documents("merida")
+    #docs = inverted_index.get_documents("merida")
 
-    print(f"First document for token 'merida' = {docs[0]}")
+    #print(f"First document for token 'merida' = {docs[0]}")
+
+def tf_command(doc_id : int, term : str) -> int:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+
+    term_freq = inverted_index.get_tf(doc_id, term)
+
+    return term_freq
+
+def idf_command(term : str) -> float:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+
+    idf_val = inverted_index.get_idf(term)
+
+    return idf_val
+
+def tf_idf_command(doc_id : int, term : str) -> float:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+
+    tf_idf = inverted_index.get_tfidf(doc_id, term)
+
+    return tf_idf
 
 def clean(dirty_str : str, stop_words : list[str]) -> list[str]:
     cleaned_str = dirty_str.lower() # Case senesetive
@@ -34,31 +58,32 @@ def has_matching_token(query_tokens: list[str], title_tokens: list[str]) -> bool
                 return True
     return False
 
-def search_command(query : str, limit : int = 5) -> list[dict]:
+def search_command(query : str, limit : int = 5) -> tuple[list[dict], bool, int]:
     print(f"Searching for: {query}")
 
-    cur_path = os.path.dirname(__file__)
-    print(cur_path)
-    data_mov_path = os.path.join(cur_path, "..", "data", "movies.json")
-    print(data_mov_path)
+    inverted_index = InvertedIndex()
+    inverted_index.load()
 
-    with open(os.path.join(cur_path, "..", "data", "stopwords.txt"), "r") as stop_words_file:
-        stop_words = stop_words_file.read()
-        stop_words = stop_words.splitlines()
-
-    cleaned_query = clean(query, stop_words)
+    tokens = clean(query, inverted_index.get_stopwords())
     
-    with open(data_mov_path, "r") as mov_file:
-        mov_dict = json.load(mov_file)
-
     movie_matches = []
-    for movie in mov_dict["movies"]:
-        cleaned_title = clean(movie["title"], stop_words)
-        if has_matching_token(cleaned_query, cleaned_title):
-        #if any(map(lambda v: v in cleaned_query, cleaned_title)):
-            movie_matches.append(movie)
 
-    return movie_matches
+    
+    doc_id_matches = [] 
+    for token in tokens:
+        doc_id_matches += inverted_index.get_documents(token, limit)
+
+    total_matches_found = len(doc_id_matches)
+    for i, doc_id in enumerate(doc_id_matches):
+        if i > limit - 1:
+            break
+        movie_matches.append(inverted_index.docmap[doc_id])
+
+    movie_matches.sort(key=lambda m: m["id"], reverse=False)
+
+    over_limit = True if len(doc_id_matches) > limit else False
+
+    return movie_matches, over_limit, total_matches_found
 
 
 def main() -> None:
@@ -70,30 +95,50 @@ def main() -> None:
     search_parser = subparsers.add_parser("search", help="Search movies using BM25")
     search_parser.add_argument("query", type=str, help="Search query")
 
-    search_parser = subparsers.add_parser("build", help="Build and inverted index and save it to file")
+    build_parser = subparsers.add_parser("build", help="Build and inverted index and save it to file")
+
+    tf_parser = subparsers.add_parser("tf", help="Search term frequency in a document")
+    tf_parser.add_argument("doc_id", type=int, help="Document id")
+    tf_parser.add_argument("term", type=str, help="Term which you want frequency for")
+
+    idf_parser = subparsers.add_parser("idf", help="Inverse Document Frequency")
+    idf_parser.add_argument("term", type=str, help="Term which you want inverse frequency for")
+
+    tfidf_parser = subparsers.add_parser("tfidf", help="Search term tfidf for a document and doc id")
+    tfidf_parser.add_argument("doc_id", type=int, help="Document id")
+    tfidf_parser.add_argument("term", type=str, help="Term which you want frequency for")
 
     args = parser.parse_args()
 
     match args.command:
         case "search":
+            movie_matches, over_limit, total_matches_found = search_command(args.query, trunc_len)
 
-            movie_matches = search_command(args.query, trunc_len)
-
-            def idSort(e):
-                return e["id"]
-            movie_matches.sort(key=idSort, reverse=False)
-
-            list_len = trunc_len if trunc_len < len(movie_matches) else len(movie_matches)
-            for i in range(list_len):
+            for i in range(len(movie_matches)):
                 print(f"{i+1}. " + movie_matches[i]["title"])
 
-            if len(movie_matches) > trunc_len:
+            if over_limit:
                 print("...")
             
-            print(f"Total found: {len(movie_matches)}")
+            print(f"Total found: {total_matches_found}")
 
         case "build":
-            build()
+            build_command()
+
+        case "tf":
+            term_frequency = tf_command(args.doc_id, args.term)
+
+            print(f'Doc ID : {args.doc_id}, Term: "{args.term}", Frequency: "{term_frequency}"')
+
+        case "idf":
+            idf = idf_command(args.term)
+
+            print(f"Inverse document frequency of '{args.term}': {idf:.2f}")
+
+        case "tfidf":
+            tf_idf = tf_idf_command(args.doc_id, args.term)
+
+            print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
 
         case _:
             parser.print_help()
