@@ -8,12 +8,16 @@ import json
 import string
 from nltk.stem import PorterStemmer
 from collections import Counter
+from itertools import islice
+
+from constants import *
 
 class InvertedIndex:
     def __init__(self):
         self.index = {}
         self.docmap = {}
         self.term_frequencies = {} # doc_id : Counter objects
+        self.doc_lengths = {} # doc_id : length of tokens
         self._cur_path = os.path.dirname(__file__)
         self._data_mov_path = os.path.join(self._cur_path, "..", "data", "movies.json")
         self._stopwords_path = os.path.join(self._cur_path, "..", "data", "stopwords.txt")
@@ -21,8 +25,9 @@ class InvertedIndex:
         self._index_path = os.path.join(self._cache_path, "index.pkl")
         self._docmap_path = os.path.join(self._cache_path, "docmap.pkl")
         self._term_frequencies_path = os.path.join(self._cache_path, "term_frequencies.pkl")
+        self._doc_lengths_path = os.path.join(self._cache_path, "doc_lengths.pkl")
 
-    def get_stopwords(self) -> list[str]:
+    def __get_stopwords(self) -> list[str]:
 
         with open(os.path.join(self._cur_path, "..", "data", "stopwords.txt"), "r") as stop_words_file:
             stop_words = stop_words_file.read()
@@ -44,9 +49,12 @@ class InvertedIndex:
 
             self.term_frequencies[doc_id][token] += 1
 
+        self.doc_lengths[doc_id] = len(cleaned_tokens)
+
     def get_tf(self, doc_id : int, term : str) -> int:
 
-        token = self.__tokenize(term, self.get_stopwords)
+        stop_words = self.__get_stopwords()
+        token = self.__tokenize(term, stop_words)
         if len(token) > 1:
             raise Exception(f"Expected one term, got multiple: {token}")
 
@@ -61,7 +69,8 @@ class InvertedIndex:
 
     def get_idf(self, term : str) -> float:
 
-        token = self.__tokenize(term, self.get_stopwords)
+        stop_words = self.__get_stopwords()
+        token = self.__tokenize(term, stop_words)
         if len(token) > 1:
             raise Exception(f"Expected one term, got multiple: {token}")
 
@@ -81,7 +90,8 @@ class InvertedIndex:
 
     def get_bm25_idf(self, term: str) -> float:
 
-        token = self.__tokenize(term, self.get_stopwords)
+        stop_words = self.__get_stopwords()
+        token = self.__tokenize(term, stop_words)
         if len(token) > 1:
             raise Exception(f"Expected one term, got multiple: {token}")
 
@@ -91,6 +101,38 @@ class InvertedIndex:
         term_match_doc_count = len(self.index[token])
 
         return math.log((total_doc_count - term_match_doc_count + 0.5) / (term_match_doc_count + 0.5) + 1)
+
+    def get_bm25_tf(self, doc_id : int, term : str, k1 : float = BM25_K1, b : float = BM25_B) -> float:
+
+        tf = self.get_tf(doc_id, term)
+
+        avg_doc_length = self.__get_avg_doc_length()
+        length_norm = 1 - b + b * (self.doc_lengths[doc_id]/ avg_doc_length)
+
+        return (tf * (k1 + 1)) / (tf + k1 * length_norm)
+
+    def get_bm25(self, doc_id : int, term : str) -> float:
+
+        bm25_tf = self.get_bm25_tf(doc_id, term) 
+        bm25_idf = self.get_bm25_idf(term)
+
+        return bm25_tf * bm25_idf
+
+    def bm25_search(self, query : str, limit : int = 5):
+
+        stop_words = self.__get_stopwords()
+        tokens = self.__tokenize(query, stop_words)
+
+        scores = {} # doc_id : BM25 cost
+        for token in tokens:
+            for doc_id in self.index[token]:
+                try:
+                    scores[doc_id] += self.get_bm25(doc_id, token)
+                except KeyError:
+                    scores[doc_id] = self.get_bm25(doc_id, token)
+        
+        #scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        return dict(sorted(scores.items(), key=lambda item: item[1], reverse=True)[:limit])
 
     def get_documents(self, term : str, limit : int = 0) -> list[int]:
         doc_id_matches = []
@@ -124,7 +166,7 @@ class InvertedIndex:
         with open(self._data_mov_path, "r") as mov_file:
             movies = json.load(mov_file)
 
-        stop_words = self.get_stopwords()
+        stop_words = self.__get_stopwords()
 
         for movie in movies["movies"]:
             self.__add_document(movie["id"], f"{movie["title"]} {movie["description"]}", stop_words)
@@ -144,17 +186,17 @@ class InvertedIndex:
         with open(self._term_frequencies_path, "wb") as term_frequencies_file:
             pickle.dump(self.term_frequencies, term_frequencies_file)
 
+        with open(self._doc_lengths_path, "wb") as doc_lengths_file:
+            pickle.dump(self.doc_lengths, doc_lengths_file)
+
     def load(self) -> None:
 
-        if not os.path.exists(self._cache_path):
-            raise FileNotFoundError(f"cache path not found: {self._cache_path}")
-        if not os.path.exists(self._index_path):
-            raise FileNotFoundError(f"index.pkl file not found: {self._index_path}")
-        if not os.path.exists(self._docmap_path):
-            raise FileNotFoundError(f"docmap.pkl file not found: {self._docmap_path}")
-        if not os.path.exists(self._term_frequencies_path):
-            raise FileNotFoundError(f"term_frequencies.pkl file not found: {self._term_frequencies_path}")
+        paths = [self._cache_path, self._index_path, self._docmap_path, self._term_frequencies_path, self._doc_lengths_path]
+        for path in paths:
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"Load path not found: {path}")
         
+       
         with open(self._index_path, "rb") as index_file:
             self.index = pickle.load(index_file)
 
@@ -164,13 +206,20 @@ class InvertedIndex:
         with open(self._term_frequencies_path, "rb") as term_frequencies_file:
             self.term_frequencies = pickle.load(term_frequencies_file)
 
+        with open(self._doc_lengths_path, "rb") as doc_lengths_file:
+            self.doc_lengths = pickle.load(doc_lengths_file)
+
+    def __get_avg_doc_length(self) -> float:
+        if len(self.doc_lengths) <= 0:
+            return 0.0
+        return sum(self.doc_lengths.values()) / len(self.doc_lengths)
+
     def __tokenize(self, dirty_str : str, stop_words : list[str]) -> list[str]:
 
         cleaned_str = dirty_str.lower() # Case senesetive
         cleaned_str = cleaned_str.translate(str.maketrans('', '', string.punctuation)) # Remove punctuations
         cleaned_str = cleaned_str.split(" ") # Tokenization
 
-        stop_words = self.get_stopwords()
         cleaned_str = [word for word in cleaned_str if word not in stop_words] # Remove stop words
 
         stemmer = PorterStemmer()

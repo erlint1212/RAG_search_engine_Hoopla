@@ -1,11 +1,16 @@
 # For nix package manager, dependencies
 let
   pkgs = import <nixpkgs> { config.allowUnfree = true; };
+  ccLib = pkgs.stdenv.cc.cc;
 in pkgs.mkShell {
   packages = [
     pkgs.uv
+    pkgs.gcc
+    ccLib
   ];
   shellHook = ''
+    export LD_LIBRARY_PATH=${ccLib.lib}/lib${":$LD_LIBRARY_PATH"}
+
     # --- Virtual Environment Setup ---
     if [ ! -d ".venv" ]; then
         echo "Creating Python virtual environment (.venv) with UV..."
@@ -15,6 +20,8 @@ in pkgs.mkShell {
         uv add google-genai==1.12.1
         uv add python-dotenv==1.1.0
         uv add nltk==3.9.1
+        uv add sentence-transformers
+        uv add numpy
     else
         source .venv/bin/activate
     fi

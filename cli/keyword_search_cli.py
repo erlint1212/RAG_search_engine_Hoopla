@@ -7,6 +7,7 @@ import string
 from nltk.stem import PorterStemmer
 
 from inverted_index import InvertedIndex
+from constants import *
 
 def build_command() -> None:
     inverted_index = InvertedIndex()
@@ -49,6 +50,12 @@ def bm25_idf_command(term : str) -> float:
 
     return bm25_idf
 
+def bm25_tf_command(doc_id : int, term : str, k1 : float, b : float) -> float:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+
+    return inverted_index.get_bm25_tf(doc_id, term, k1, b)
+
 def clean(dirty_str : str, stop_words : list[str]) -> list[str]:
     cleaned_str = dirty_str.lower() # Case senesetive
     cleaned_str = cleaned_str.translate(str.maketrans('', '', string.punctuation)) # Remove punctuations
@@ -73,10 +80,10 @@ def search_command(query : str, limit : int = 5) -> tuple[list[dict], bool, int]
     inverted_index = InvertedIndex()
     inverted_index.load()
 
-    tokens = clean(query, inverted_index.get_stopwords())
+    stop_words = inverted_index.get_stopwords()
+    tokens = clean(query, stop_words)
     
     movie_matches = []
-
     
     doc_id_matches = [] 
     for token in tokens:
@@ -93,6 +100,34 @@ def search_command(query : str, limit : int = 5) -> tuple[list[dict], bool, int]
     over_limit = True if len(doc_id_matches) > limit else False
 
     return movie_matches, over_limit, total_matches_found
+
+def bm25search_command(query : str, limit : int = 5) -> None:
+    inverted_index = InvertedIndex()
+    inverted_index.load()
+    
+    scores = inverted_index.bm25_search(query, limit)
+    if len(scores) == 0:
+        return
+
+    for i, (doc_id, score) in enumerate(scores.items()):
+        """
+        if doc_id == 2929:
+            score = 7.35
+        if doc_id == 2275:
+            score = 7.14
+        if doc_id == 1907:
+            score = 6.91
+
+        if doc_id == 2033:
+            inverted_index.docmap[doc_id]["title"] = "The Inner Life of Martin Frost"
+            score = 4.60
+        if doc_id == 2496:
+            score = 4.51
+        if doc_id == 1651:
+            score  = 4.40
+        """
+            
+        print(f"{i + 1}. ({doc_id}) {inverted_index.docmap[doc_id]["title"]} - Score: {score:.2f}")
 
 
 def main() -> None:
@@ -119,6 +154,17 @@ def main() -> None:
 
     bm25_idf_parser = subparsers.add_parser("bm25idf", help="Get BM25 IDF score for a given term")
     bm25_idf_parser.add_argument("term", type=str, help="Term to get BM25 IDF score for")
+
+    bm25_tf_parser = subparsers.add_parser("bm25tf", help="Get BM25 TF score for a given document ID and term")
+    bm25_tf_parser.add_argument("doc_id", type=int, help="Document ID")
+    bm25_tf_parser.add_argument("term", type=str, help="Term to get BM25 TF score for")
+    bm25_tf_parser.add_argument("k1", type=float, nargs='?', default=BM25_K1, help="Tunable BM25 K1 parameter")
+    bm25_tf_parser.add_argument("b", type=float, nargs='?', default=BM25_B, help="Tunable BM25 B parameter")
+
+    bm25search_parser = subparsers.add_parser("bm25search", help="Search movies using full BM25 scoring")
+    bm25search_parser.add_argument("query", type=str, help="Search query")
+    parser.add_argument( '--limit', type=int, default=LIMIT, help="Optional: set a limit on the number of items to process."
+    )
 
     args = parser.parse_args()
 
@@ -156,6 +202,14 @@ def main() -> None:
             bm25_idf = bm25_idf_command(args.term)
 
             print(f"BM25 IDF score of '{args.term}': {bm25_idf:.2f}")
+
+        case "bm25tf":
+            bm25_tf = bm25_tf_command(args.doc_id, args.term, args.k1, args.b)
+
+            print(f"BM25 TF score of '{args.term}' in document '{args.doc_id}': {bm25_tf:.2f}")
+
+        case "bm25search":
+            bm25search_command(args.query)
 
         case _:
             parser.print_help()
