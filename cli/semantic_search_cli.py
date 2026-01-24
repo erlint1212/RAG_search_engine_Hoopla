@@ -55,6 +55,18 @@ def search(query : str, limit : int  = LIMIT) -> None:
         print(f"   {doc["description"][:100]}...")
         print("")
 
+def chunk(text_block : str, chunk_size : int = CHUNK_SIZE):
+    words = text_block.split(" ")
+    #chunks = [text_block[i:i + chunk_size] for i in range(0, len(text_block), chunk_size)]
+    chunks = []
+    for i in range(0, len(words), chunk_size):
+        chunk = (words[i:i + chunk_size])
+        chunk = " ".join(chunk)
+        chunks.append(chunk)
+
+    print(f"Chunking {len(text_block)} characters")
+    for i, chunk in enumerate(chunks):
+        print(f"{i+1}. {chunk}")
 
 def main():
     parser = argparse.ArgumentParser(description="Semantic Search CLI")
@@ -80,6 +92,16 @@ def main():
         help="Specify the maximum number of items to print (e.g., --limit 10)"
     )
 
+    chunk_parser = subparsers.add_parser("chunk", help="Command that accepts a positional query string argument. It should call your embed_query_text function with the provided query.")
+    chunk_parser.add_argument("text_block", type=str, help="String to chunk")
+    chunk_parser.add_argument(
+        '--chunk-size',
+        nargs="?",
+        type=int,
+        default=CHUNK_SIZE,
+        help="Specify the maximum number of items to print (e.g., --limit 10)"
+    )
+
     args = parser.parse_args()
 
     match args.command:
@@ -93,6 +115,8 @@ def main():
             embed_query_text(args.query)
         case "search":
             search(args.query, args.limit)
+        case "chunk":
+            chunk(args.text_block, args.chunk_size)
         case _:
             parser.print_help()
 
