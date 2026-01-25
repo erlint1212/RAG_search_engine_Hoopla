@@ -55,12 +55,17 @@ def search(query : str, limit : int  = LIMIT) -> None:
         print(f"   {doc["description"][:100]}...")
         print("")
 
-def chunk(text_block : str, chunk_size : int = CHUNK_SIZE):
+def chunk(text_block : str, chunk_size : int = CHUNK_SIZE, overlap : int = 0):
+    if overlap < 0 or type(overlap) != int:
+        raise ValueError("overlap must be 0 or a positive integer")
     words = text_block.split(" ")
     #chunks = [text_block[i:i + chunk_size] for i in range(0, len(text_block), chunk_size)]
     chunks = []
     for i in range(0, len(words), chunk_size):
-        chunk = (words[i:i + chunk_size])
+        if i == 0:
+            chunk = (words[i:i + chunk_size])
+        else:
+            chunk = (words[i - overlap:i + chunk_size])
         chunk = " ".join(chunk)
         chunks.append(chunk)
 
@@ -101,6 +106,12 @@ def main():
         default=CHUNK_SIZE,
         help="Specify the maximum number of items to print (e.g., --limit 10)"
     )
+    chunk_parser.add_argument(
+        '--overlap',
+        type=int,
+        default=0,
+        help="Specify the maximum number of items to overlap (e.g., --limit 10)"
+    )
 
     args = parser.parse_args()
 
@@ -116,7 +127,7 @@ def main():
         case "search":
             search(args.query, args.limit)
         case "chunk":
-            chunk(args.text_block, args.chunk_size)
+            chunk(args.text_block, args.chunk_size, args.overlap)
         case _:
             parser.print_help()
 
