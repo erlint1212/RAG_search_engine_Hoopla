@@ -5,6 +5,7 @@ import lib.semantic_search as semsearch
 import os
 import json
 from constants import *
+import re
 
 def verify_command() -> None:
     semsearch.verify_model()
@@ -55,12 +56,40 @@ def search(query : str, limit : int  = LIMIT) -> None:
         print(f"   {doc["description"][:100]}...")
         print("")
 
-def chunk(text_block : str, chunk_size : int = CHUNK_SIZE, overlap : int = 0):
+def chunk(text_block : str, chunk_size : int = CHUNK_SIZE, overlap : int = 0) -> None:
     if overlap < 0 or type(overlap) != int:
         raise ValueError("overlap must be 0 or a positive integer")
     words = text_block.split(" ")
     #chunks = [text_block[i:i + chunk_size] for i in range(0, len(text_block), chunk_size)]
     chunks = []
+    for i in range(0, len(words), chunk_size):
+        if i == 0:
+            chunk = (words[i:i + chunk_size])
+        else:
+            chunk = (words[i - overlap:i + chunk_size])
+        chunk = " ".join(chunk)
+        chunks.append(chunk)
+
+    print(f"Chunking {len(text_block)} characters")
+    for i, chunk in enumerate(chunks):
+        print(f"{i+1}. {chunk}")
+
+def semantic_chunk(text_block : str, chunk_size : int = CHUNK_SIZE, overlap : int = 0) -> None:
+    if overlap < 0 or type(overlap) != int:
+        raise ValueError("overlap must be 0 or a positive integer")
+    sentences = re.split(r"(?<=[.!?])\s+", text_block)
+    #chunks = [text_block[i:i + chunk_size] for i in range(0, len(text_block), chunk_size)]
+    chunks = []
+    temp_sentence = ""
+    for sentence in sentences:
+        if sentence >= max_chunk_size:
+            chunks.append(sentence)
+            continue
+        temp_sentence += sentence
+        if temp_sentence >= max_chunk_size:
+            chunks.append(temp_sentence)
+            temp_sentence = ""
+
     for i in range(0, len(words), chunk_size):
         if i == 0:
             chunk = (words[i:i + chunk_size])
