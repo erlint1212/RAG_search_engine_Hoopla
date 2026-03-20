@@ -5,6 +5,7 @@ let
 in pkgs.mkShell {
   packages = [
     pkgs.uv
+    pkgs.python3
     pkgs.gcc
     ccLib
   ];
@@ -14,8 +15,8 @@ in pkgs.mkShell {
     # --- Virtual Environment Setup ---
     if [ ! -d ".venv" ]; then
         echo "Creating Python virtual environment (.venv) with UV..."
-        uv init .
-        uv venv
+        #uv init .
+        uv venv --python $(which python3)
         source .venv/bin/activate
         uv add google-genai==1.12.1
         uv add python-dotenv==1.1.0

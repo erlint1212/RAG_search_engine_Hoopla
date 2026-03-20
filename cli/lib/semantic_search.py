@@ -86,7 +86,7 @@ class SemanticSearch:
     def generate_embedding(self, text : str) -> list[float]:
         clean_text = text.strip()
         if clean_text == "":
-            ValueError("The input text is empty")
+            raise ValueError("The input text is empty")
 
         embedding = self.encode(text)
 

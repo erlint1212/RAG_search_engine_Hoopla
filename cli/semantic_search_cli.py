@@ -74,31 +74,35 @@ def chunk(text_block : str, chunk_size : int = CHUNK_SIZE, overlap : int = 0) ->
     for i, chunk in enumerate(chunks):
         print(f"{i+1}. {chunk}")
 
-def semantic_chunk(text_block : str, chunk_size : int = CHUNK_SIZE, overlap : int = 0) -> None:
+def semantic_chunk(text_block : str, max_chunk_size : int = CHUNK_SIZE, overlap : int = 0) -> None:
     if overlap < 0 or type(overlap) != int:
         raise ValueError("overlap must be 0 or a positive integer")
     sentences = re.split(r"(?<=[.!?])\s+", text_block)
+    print(sentences[0])
     #chunks = [text_block[i:i + chunk_size] for i in range(0, len(text_block), chunk_size)]
     chunks = []
     temp_sentence = ""
+    temp_count = 0
     for sentence in sentences:
-        if sentence >= max_chunk_size:
-            chunks.append(sentence)
-            continue
-        temp_sentence += sentence
-        if temp_sentence >= max_chunk_size:
+        if temp_count == 0:
+            temp_sentence += sentence
+        else:
+            temp_sentence += " " + sentence
+        temp_count += 1
+        if temp_count >= max_chunk_size:
             chunks.append(temp_sentence)
+            temp_count = 0
             temp_sentence = ""
 
-    for i in range(0, len(words), chunk_size):
+    for i in range(0, len(sentences), max_chunk_size):
         if i == 0:
-            chunk = (words[i:i + chunk_size])
+            chunk = (sentences[i:i + max_chunk_size])
         else:
-            chunk = (words[i - overlap:i + chunk_size])
+            chunk = (sentences[i - overlap:i + max_chunk_size])
         chunk = " ".join(chunk)
         chunks.append(chunk)
 
-    print(f"Chunking {len(text_block)} characters")
+    print(f"Semantically chunking {len(text_block)} characters")
     for i, chunk in enumerate(chunks):
         print(f"{i+1}. {chunk}")
 
@@ -142,6 +146,22 @@ def main():
         help="Specify the maximum number of items to overlap (e.g., --limit 10)"
     )
 
+    semantic_chunk_parser = subparsers.add_parser("semantic_chunk", help="Command that accepts a positional query string argument. It should call your embed_query_text function with the provided query.")
+    semantic_chunk_parser.add_argument("text_block", type=str, help="String to chunk")
+    semantic_chunk_parser.add_argument(
+        '--max-chunk-size',
+        nargs="?",
+        type=int,
+        default=CHUNK_SIZE,
+        help="Specify the maximum number of items to print (e.g., --limit 10)"
+    )
+    semantic_chunk_parser.add_argument(
+        '--overlap',
+        type=int,
+        default=0,
+        help="Specify the maximum number of items to overlap (e.g., --limit 10)"
+    )
+
     args = parser.parse_args()
 
     match args.command:
@@ -157,6 +177,8 @@ def main():
             search(args.query, args.limit)
         case "chunk":
             chunk(args.text_block, args.chunk_size, args.overlap)
+        case "semantic_chunk":
+            semantic_chunk(args.text_block, args.max_chunk_size, args.overlap)
         case _:
             parser.print_help()
 
