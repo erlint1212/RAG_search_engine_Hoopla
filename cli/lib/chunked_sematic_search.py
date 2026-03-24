@@ -5,10 +5,10 @@ import numpy as np
 from constants import *
 from sentence_transformers import SentenceTransformer
 
-from .semantic_search import SemanticSearch, semantic_chunk
+from . import semantic_search as semsearch
 
 
-class ChunkedSemanticSearch(SemanticSearch):
+class ChunkedSemanticSearch(semsearch.SemanticSearch):
     def __init__(self, model_name="all-MiniLM-L6-v2") -> None:
         super().__init__(model_name)
         self.chunk_embeddings = None
@@ -27,7 +27,7 @@ class ChunkedSemanticSearch(SemanticSearch):
             if doc["description"] == "":
                 continue
 
-            chunks = semantic_chunk(
+            chunks = semsearch.semantic_chunk(
                 text_block=doc["description"], max_chunk_size=4, overlap=1
             )
 
@@ -72,8 +72,51 @@ class ChunkedSemanticSearch(SemanticSearch):
                 self.chunk_embeddings = np.load(embeddings_file)
 
             with open(self._metadata_path, "r") as metadata_file:
-                self.chunk_metadata = json.load(metadata_file)
+                self.chunk_metadata = json.load(metadata_file)["chunks"]
 
             return self.chunk_embeddings
         else:
             return self.build_chunk_embeddings(documents)
+
+    def search_chunks(self, query: str, limit: int = 10) -> list[dict]:
+        encoded_query = self.encode(query)
+        chunk_score_list = []
+
+        for chunk_idx, chunk in enumerate(self.chunk_embeddings):
+            score = semsearch.cosine_similarity(encoded_query, chunk)
+
+            chunk_score_list.append(
+                    {
+                        "chunk_idx" : chunk_idx,
+                        "movie_idx" : self.chunk_metadata[chunk_idx]["movie_idx"],
+                        "score" : score,
+                    }
+            )
+
+        mov_score_map = {}
+        for chunk in chunk_score_list:
+            if chunk["movie_idx"] not in mov_score_map.keys() or chunk["score"] > mov_score_map[chunk["movie_idx"]]:
+                mov_score_map[chunk["movie_idx"]] = chunk["score"]
+
+        sorted_items = sorted(mov_score_map.items(), key=lambda item: item[1], reverse=True)[:limit]
+        sorted_mov_score_map = dict(sorted_items)
+
+        return_list = []
+        for movie_idx, score in sorted_mov_score_map.items():
+            doc = self.documents[movie_idx]
+            return_list.append(
+                    {
+                        "id" : movie_idx,
+                        "title" : doc["title"],
+                        "document" : doc["description"][:100],
+                        "score" : round(score, SCORE_PRECISION),
+                        "metadata" : doc.get("metadata") or {},
+                    }
+            )
+
+        return return_list
+
+
+
+
+

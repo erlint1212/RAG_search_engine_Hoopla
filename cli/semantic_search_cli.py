@@ -81,11 +81,25 @@ def embed_chunks():
     with open(movie_path, "r") as mov_file:
         movies = json.load(mov_file)
 
-    print(type(movies), list(movies.keys()))
-    
     embeddings = chunked_semantic_search.load_or_create_chunk_embeddings(movies["movies"])
 
     print(f"Generated {len(embeddings)} chunked embeddings")
+
+def search_chunked(query : str, limit : int = LIMIT):
+    chunked_semantic_search = chunked_semsearch.ChunkedSemanticSearch()
+    cur_path = os.path.dirname(__file__)
+    movie_path = os.path.join(cur_path, "..", "data", "movies.json") 
+
+    with open(movie_path, "r") as mov_file:
+        movies = json.load(mov_file)
+
+    embeddings = chunked_semantic_search.load_or_create_chunk_embeddings(movies["movies"])
+
+    sorted_results = chunked_semantic_search.search_chunks(query, limit)
+
+    for i, movie in enumerate(sorted_results):
+        print(f"\n{i}. {movie["title"]} (score: {movie["score"]:.4f})")
+        print(f"   {movie["document"]}...")
 
 
 def main():
@@ -146,6 +160,17 @@ def main():
 
     embed_chunks_parser = subparsers.add_parser("embed_chunks", help="Loads or builds the embeddings for the movie file register to search through")
 
+    search_chunked_parser = subparsers.add_parser("search_chunked", help="Command that accepts a positional query string argument. It should call your embed_query_text function with the provided query.")
+    search_chunked_parser.add_argument("query", type=str, help="String to be embedded and query over the database")
+    search_chunked_parser.add_argument(
+        '--limit',
+        nargs="?",
+        type=int,
+        default=LIMIT,
+        help="Specify the maximum number of items to print (e.g., --limit 10)"
+    )
+
+
     args = parser.parse_args()
 
     match args.command:
@@ -175,6 +200,9 @@ def main():
 
         case "embed_chunks":
             embed_chunks()
+
+        case "search_chunked":
+            search_chunked(args.query, args.limit)
 
         case _:
             parser.print_help()
