@@ -2,6 +2,7 @@
 
 import argparse
 import lib.semantic_search as semsearch
+import lib.chunked_sematic_search as chunked_semsearch
 import os
 import json
 from constants import *
@@ -72,35 +73,19 @@ def chunk(text_block : str, chunk_size : int = CHUNK_SIZE, overlap : int = 0) ->
 
     return chunks
 
+def embed_chunks():
+    chunked_semantic_search = chunked_semsearch.ChunkedSemanticSearch()
+    cur_path = os.path.dirname(__file__)
+    movie_path = os.path.join(cur_path, "..", "data", "movies.json") 
 
-def semantic_chunk(text_block : str, max_chunk_size : int = CHUNK_SIZE, overlap : int = 0) -> list[str]:
-    if overlap < 0 or type(overlap) != int:
-        raise ValueError("overlap must be 0 or a positive integer")
-    sentences = re.split(r"(?<=[.!?])\s+", text_block)
-    #chunks = [text_block[i:i + chunk_size] for i in range(0, len(text_block), chunk_size)]
-    chunks = []
-    temp_sentence = ""
-    temp_count = 0
-    for sentence in sentences:
-        if temp_count == 0:
-            temp_sentence += sentence
-        else:
-            temp_sentence += " " + sentence
-        temp_count += 1
-        if temp_count >= max_chunk_size:
-            chunks.append(temp_sentence)
-            temp_count = 0
-            temp_sentence = ""
+    with open(movie_path, "r") as mov_file:
+        movies = json.load(mov_file)
 
-    for i in range(0, len(sentences), max_chunk_size):
-        if i == 0:
-            chunk = (sentences[i:i + max_chunk_size])
-        else:
-            chunk = (sentences[i - overlap:i + max_chunk_size])
-        chunk = " ".join(chunk)
-        chunks.append(chunk)
+    print(type(movies), list(movies.keys()))
+    
+    embeddings = chunked_semantic_search.load_or_create_chunk_embeddings(movies["movies"])
 
-    return chunks
+    print(f"Generated {len(embeddings)} chunked embeddings")
 
 
 def main():
@@ -159,6 +144,8 @@ def main():
         help="Specify the maximum number of items to overlap (e.g., --limit 10)"
     )
 
+    embed_chunks_parser = subparsers.add_parser("embed_chunks", help="Loads or builds the embeddings for the movie file register to search through")
+
     args = parser.parse_args()
 
     match args.command:
@@ -180,11 +167,14 @@ def main():
                 print(f"{i+1}. {chunk}")
 
         case "semantic_chunk":
-            chunks = semantic_chunk(args.text_block, args.max_chunk_size, args.overlap)
+            chunks = semsearch.semantic_chunk(args.text_block, args.max_chunk_size, args.overlap)
 
             print(f"Semantically chunking {len(args.text_block)} characters")
             for i, chunk in enumerate(chunks):
                 print(f"{i+1}. {chunk}")
+
+        case "embed_chunks":
+            embed_chunks()
 
         case _:
             parser.print_help()

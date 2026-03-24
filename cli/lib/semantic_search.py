@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
-from sentence_transformers import SentenceTransformer
-import numpy as np
 import os
+import re
+
+import numpy as np
 from constants import *
+from sentence_transformers import SentenceTransformer
+
 
 class SemanticSearch:
-    def __init__(self):
+    def __init__(self, model_name="all-MiniLM-L6-v2"):
         # Load the model (downloads automatically the first time)
-        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.model = SentenceTransformer(model_name)
         self.embeddings = None
         self.documents = None
         self.document_map = {}
@@ -18,14 +21,18 @@ class SemanticSearch:
         self._cache_path = os.path.join(self._top_path, "cache")
         self._embeddings_path = os.path.join(self._cache_path, "movie_embeddings.npy")
 
-    def search(self, query  : str, limit : int = LIMIT) -> list[tuple[float, dict[int, str, str]]]:
+    def search(
+        self, query: str, limit: int = LIMIT
+    ) -> list[tuple[float, dict[int, str, str]]]:
         if self.embeddings is None:
-            raise ValueError("No embeddings loaded. Call `load_or_create_embeddings` first.")
+            raise ValueError(
+                "No embeddings loaded. Call `load_or_create_embeddings` first."
+            )
 
         embedded_query = self.generate_embedding(query)
 
         simmilarity_list = []
-        for i, embedded_doc in enumerate(self.embeddings): 
+        for i, embedded_doc in enumerate(self.embeddings):
             cos_sim = cosine_similarity(embedded_doc, embedded_query)
 
             simmilarity_list.append((cos_sim, self.documents[i]))
@@ -35,18 +42,18 @@ class SemanticSearch:
         result_dic = []
         for i in range(limit):
             result_dic.append(
-                        {
-                            "score" : simmilarity_list[i][0],
-                            "title" : simmilarity_list[i][1]["title"],
-                            "description" : simmilarity_list[i][1]["description"],
-                        }
-                    )
+                {
+                    "score": simmilarity_list[i][0],
+                    "title": simmilarity_list[i][1]["title"],
+                    "description": simmilarity_list[i][1]["description"],
+                }
+            )
 
         return result_dic
 
-
-
-    def build_embeddings(self, documents : list[dict[int, list[int | str]]]) -> list[float]:
+    def build_embeddings(
+        self, documents: list[dict[int, list[int | str]]]
+    ) -> list[float]:
         self.documents = documents
         doc_list = []
         for doc in self.documents:
@@ -65,7 +72,9 @@ class SemanticSearch:
 
         return self.embeddings
 
-    def load_or_create_embeddings(self, documents : list[dict[int, list[int | str]]]) -> list[float]:
+    def load_or_create_embeddings(
+        self, documents: list[dict[int, list[int | str]]]
+    ) -> list[float]:
 
         if os.path.exists(self._embeddings_path):
 
@@ -78,12 +87,12 @@ class SemanticSearch:
         else:
             return self.build_embeddings(documents)
 
-    def encode(self, text : list[str]) -> list[float]:
+    def encode(self, text: list[str]) -> list[float]:
         encoded_text = self.model.encode(text, show_progress_bar=True)
 
         return encoded_text
 
-    def generate_embedding(self, text : str) -> list[float]:
+    def generate_embedding(self, text: str) -> list[float]:
         clean_text = text.strip()
         if clean_text == "":
             raise ValueError("The input text is empty")
@@ -98,7 +107,8 @@ def verify_model() -> None:
     print(f"Model loaded: {semantic_search.model}")
     print(f"Max sequence length: {semantic_search.model.max_seq_length}")
 
-def cosine_similarity(vec1 : list[float], vec2 : list[float]) -> float:
+
+def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     dot_product = np.dot(vec1, vec2)
     norm1 = np.linalg.norm(vec1)
     norm2 = np.linalg.norm(vec2)
@@ -107,3 +117,21 @@ def cosine_similarity(vec1 : list[float], vec2 : list[float]) -> float:
         return 0.0
 
     return dot_product / (norm1 * norm2)
+
+
+def semantic_chunk(
+    text_block: str,
+    max_chunk_size: int = DEFAULT_SEMANTIC_CHUNK_SIZE,
+    overlap: int = DEFAULT_CHUNK_OVERLAP,
+) -> list[str]:
+    sentences = re.split(r"(?<=[.!?])\s+", text_block)
+    chunks = []
+    i = 0
+    n_sentences = len(sentences)
+    while i < n_sentences:
+        chunk_sentences = sentences[i : i + max_chunk_size]
+        if chunks and len(chunk_sentences) <= overlap:
+            break
+        chunks.append(" ".join(chunk_sentences))
+        i += max_chunk_size - overlap
+    return chunks
