@@ -19,17 +19,17 @@ class InvertedIndex:
         self.term_frequencies = {} # doc_id : Counter objects
         self.doc_lengths = {} # doc_id : length of tokens
         self._cur_path = os.path.dirname(__file__)
-        self._data_mov_path = os.path.join(self._cur_path, "..", "data", "movies.json")
-        self._stopwords_path = os.path.join(self._cur_path, "..", "data", "stopwords.txt")
-        self._cache_path = os.path.join(self._cur_path, "..", "cache")
-        self._index_path = os.path.join(self._cache_path, "index.pkl")
+        self._data_mov_path = os.path.join(self._cur_path, "..", "..", "data", "movies.json")
+        self._stopwords_path = os.path.join(self._cur_path, "..", "..", "data", "stopwords.txt")
+        self._cache_path = os.path.join(self._cur_path, "..", "..", "cache")
+        self.index_path = os.path.join(self._cache_path, "index.pkl")
         self._docmap_path = os.path.join(self._cache_path, "docmap.pkl")
         self._term_frequencies_path = os.path.join(self._cache_path, "term_frequencies.pkl")
         self._doc_lengths_path = os.path.join(self._cache_path, "doc_lengths.pkl")
 
     def __get_stopwords(self) -> list[str]:
 
-        with open(os.path.join(self._cur_path, "..", "data", "stopwords.txt"), "r") as stop_words_file:
+        with open(self._stopwords_path, "r") as stop_words_file:
             stop_words = stop_words_file.read()
             stop_words = stop_words.splitlines()
 
@@ -177,7 +177,7 @@ class InvertedIndex:
         if not os.path.exists(self._cache_path):
             os.makedirs(self._cache_path)
 
-        with open(self._index_path, "wb") as index_file:
+        with open(self.index_path, "wb") as index_file:
             pickle.dump(self.index, index_file)
 
         with open(self._docmap_path, "wb") as docmap_file:
@@ -191,13 +191,13 @@ class InvertedIndex:
 
     def load(self) -> None:
 
-        paths = [self._cache_path, self._index_path, self._docmap_path, self._term_frequencies_path, self._doc_lengths_path]
+        paths = [self._cache_path, self.index_path, self._docmap_path, self._term_frequencies_path, self._doc_lengths_path]
         for path in paths:
             if not os.path.exists(path):
                 raise FileNotFoundError(f"Load path not found: {path}")
         
        
-        with open(self._index_path, "rb") as index_file:
+        with open(self.index_path, "rb") as index_file:
             self.index = pickle.load(index_file)
 
         with open(self._docmap_path, "rb") as docmap_file:

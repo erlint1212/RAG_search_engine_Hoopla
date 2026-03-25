@@ -98,7 +98,7 @@ def search_chunked(query : str, limit : int = LIMIT):
     sorted_results = chunked_semantic_search.search_chunks(query, limit)
 
     for i, movie in enumerate(sorted_results):
-        print(f"\n{i}. {movie["title"]} (score: {movie["score"]:.4f})")
+        print(f"\n{i + 1}. {movie["title"]} (score: {movie["score"]:.4f})")
         print(f"   {movie["document"]}...")
 
 

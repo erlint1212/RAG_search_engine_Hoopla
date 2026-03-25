@@ -6,7 +6,7 @@ import json
 import string
 from nltk.stem import PorterStemmer
 
-from inverted_index import InvertedIndex
+from lib.keyword_search import InvertedIndex
 from constants import *
 
 def build_command() -> None:

@@ -67,6 +67,8 @@ class ChunkedSemanticSearch(semsearch.SemanticSearch):
         ):
 
             self.documents = documents
+            for doc in self.documents:
+                self.document_map[doc["id"]] = doc
 
             with open(self._embeddings_path, "rb") as embeddings_file:
                 self.chunk_embeddings = np.load(embeddings_file)
