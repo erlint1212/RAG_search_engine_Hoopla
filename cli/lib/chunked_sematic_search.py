@@ -116,7 +116,3 @@ class ChunkedSemanticSearch(semsearch.SemanticSearch):
 
         return return_list
 
-
-
-
-
