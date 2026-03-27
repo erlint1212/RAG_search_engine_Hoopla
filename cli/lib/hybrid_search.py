@@ -32,9 +32,9 @@ class HybridSearch:
         sem_score_dic_norm = normalize_dict(sem_score_dict)
 
         comb_score_dic = {}
-        for movie_id, norm_score in bm25_dic_norm:
+        for movie_id, norm_score in bm25_dic_norm.items():
             comb_score_dic[movie_id] = {"keyword_score" : norm_score, "semantic_score": 0}
-        for movie_id, norm_score in sem_score_dic_norm:
+        for movie_id, norm_score in sem_score_dic_norm.items():
             if movie_id not in comb_score_dic.keys():
                 comb_score_dic[movie_id] = {"keyword_score" : 0, "semantic_score": norm_score}
                 continue
@@ -49,11 +49,6 @@ class HybridSearch:
         )
 
         return comb_score_dic_sorted
-
-
-
-
-
 
     def rrf_search(self, query, k, limit=10):
         raise NotImplementedError("RRF hybrid search is not implemented yet.")

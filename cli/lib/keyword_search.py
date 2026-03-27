@@ -125,7 +125,7 @@ class InvertedIndex:
 
         scores = {} # doc_id : BM25 cost
         for token in tokens:
-            for doc_id in self.index[token]:
+            for doc_id in self.docmap:
                 try:
                     scores[doc_id] += self.get_bm25(doc_id, token)
                 except KeyError:

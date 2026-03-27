@@ -28,7 +28,9 @@ class ChunkedSemanticSearch(semsearch.SemanticSearch):
                 continue
 
             chunks = semsearch.semantic_chunk(
-                text_block=doc["description"], max_chunk_size=4, overlap=1
+                text_block=doc["description"],
+                max_chunk_size=DEFAULT_SEMANTIC_CHUNK_SIZE,
+                overlap=DEFAULT_CHUNK_OVERLAP
             )
 
             all_chunks += chunks
@@ -36,7 +38,7 @@ class ChunkedSemanticSearch(semsearch.SemanticSearch):
             for chunk_idx in range(len(chunks)):
                 self.chunk_metadata.append(
                     {
-                        "movie_idx": doc_idx,
+                        "movie_idx": doc_idx, #doc["id"]
                         "chunk_idx": chunk_idx,
                         "total_chunks": len(chunks),
                     }
@@ -108,10 +110,10 @@ class ChunkedSemanticSearch(semsearch.SemanticSearch):
             doc = self.documents[movie_idx]
             return_list.append(
                     {
-                        "id" : movie_idx,
+                        "id" : doc["id"], #movie_idx
                         "title" : doc["title"],
                         "document" : doc["description"][:100],
-                        "score" : round(score, SCORE_PRECISION),
+                        "score" : score,
                         "metadata" : doc.get("metadata") or {},
                     }
             )

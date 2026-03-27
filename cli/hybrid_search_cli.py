@@ -19,9 +19,13 @@ def weighted_search(query : str, alpha : float = DEFAULT_ALPHA, limit : int = LI
 
     hybrid_class = hybrid_search.HybridSearch(movies)
     sorted_scores = hybrid_class.weighted_search(query, alpha, limit)
+    
+    document_map = {}
+    for doc in hybrid_class.documents:
+        document_map[doc["id"]] = doc
 
     for rank, (movie_id, scores) in enumerate(sorted_scores.items(), start=1):
-        doc = hybrid_class.document_map[movie_id]
+        doc = document_map[movie_id]
         print(f"{rank}. {doc["title"]}")
         print(f"   Hybrid Score: {scores["hybrid_score"]:.4f}")
         print(f"   BM25: {scores["keyword_score"]:.4f}, Semantic: {scores["semantic_score"]:.4f}")
